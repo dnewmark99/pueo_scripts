@@ -6,6 +6,7 @@ import ROOT
 import os
 import json
 from tqdm import tqdm
+import time
 
 import pueoTALON.pueoPythonAnalyzer.waveform as waveform
 import pueoTALON.pueoPythonAnalyzer.plotter as pltr
@@ -84,11 +85,10 @@ def plot_wfs(this_run, this_ev, poli = 'V', opp_poli = 'H', filtered = True):
     print(f'plotted csw for run = {this_run} and ev = {this_ev} (filtered  = {filtered})')
 
 def plot_run_ev():
-    runs = [813, 813, 813, 813, 813]
-    evs = [2372, 3095, 4693, 5737, 7844]
+    evs = [2372, 2392, 2402, 2420, 2435, 2453, 2455, 2467, 2476, 2488, 2498, 2506, 2510, 2523, 2535, 2552, 2564, 2572, 2576, 2589]
 
-    for r in range(len(runs)):
-        this_run = runs[r]
+    for r in range(len(evs)):
+        this_run = 813
         this_ev = evs[r]
 
         ### plot!
@@ -119,6 +119,7 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
         total_groundcal_events = len(groundcal_runs)
         [all_runs.append(int(r)) for r in groundcal_runs]
         [all_entries.append(int(e)) for e in groundcal_evs]
+    print(f'total of {len(all_entries)} events!')
 
     ### now let's go through our runs and make waterfall plot
     prev_run = None
@@ -126,11 +127,12 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
     power_unfiltered_vpol = []
     power_filtered_hpol = []
     power_unfiltered_hpol = []
+    passed_events = []
     pbar = tqdm(total=n_evs, desc="Good events", unit="event")
+    total_time_per_event = []
     for r in range(len(all_runs)):
         if len(power_filtered_vpol) >= n_evs:
             break
-
         this_run = int(all_runs[r])
         this_ev = int(all_entries[r])
 
@@ -158,28 +160,32 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
 
         if not any([this_blast_flag, this_sat_flag, this_deadtime_flag, this_low_channel_rms_flag]):
             ### get our filtered and un-filtered wfs
+            start = time.perf_counter()
             corr.ChannelGeo.load_waveforms()
             unfilt_wfs = np.asarray(corr.ChannelGeo.waveforms_unfilt)
             filt_wfs = np.asarray(corr.ChannelGeo.waveforms)
             times = np.arange(unfilt_wfs.shape[-1]) * (1/3)
+            end = time.perf_counter()
+            total_time = end - start
 
             ### now let's get the fft
             dt = times[1] - times[0]
             unfilt_f, unfilt_vf = utils.fourierTransform(times, unfilt_wfs)
-            unfilt_dB = utils.volt_to_dB(unfilt_vf*dt)
-
             filt_f, filt_vf = utils.fourierTransform(times, filt_wfs)
-            filt_dB = utils.volt_to_dB(filt_vf*dt)
 
             ### now let's save!!!
-            power_filtered_vpol.append(np.abs(np.sum(filt_dB[mask_V], axis=0)) / np.count_nonzero(mask_V))
-            power_unfiltered_vpol.append(np.abs(np.sum(unfilt_dB[mask_V], axis=0)) / np.count_nonzero(mask_V))
-            power_filtered_hpol.append(np.abs(np.sum(filt_dB[mask_H], axis=0)) / np.count_nonzero(mask_H))
-            power_unfiltered_hpol.append(np.abs(np.sum(unfilt_dB[mask_H], axis=0)) / np.count_nonzero(mask_H))
+            power_filtered_vpol.append(np.real(utils.volt_to_dB(np.mean(filt_vf[mask_V], axis=0))))
+            power_unfiltered_vpol.append(np.real(utils.volt_to_dB(np.mean(unfilt_vf[mask_V], axis=0))))
+            power_filtered_hpol.append(np.real(utils.volt_to_dB(np.mean(filt_vf[mask_H], axis=0))))
+            power_unfiltered_hpol.append(np.real(utils.volt_to_dB(np.mean(unfilt_vf[mask_H], axis=0))))
 
             pbar.update(1)
+            passed_events.append(this_ev)
+            total_time_per_event.append(total_time)
+
     pbar.close()
 
+    print(f'average filtering time per event = {np.mean(total_time_per_event)}')
     ### now make our 2d waterfall plot!
     all_waterfalls = [power_filtered_vpol, power_unfiltered_vpol, power_filtered_hpol, power_unfiltered_hpol,]
     all_titles = ['Filtered (V-Pol)', 'Unfiltered (V-Pol)', 'Filtered (H-Pol)', 'Unfiltered (H-Pol)', ]
@@ -192,7 +198,7 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
     ### frequency bin edges
     df = filt_f[1] - filt_f[0]
     freq_bin_edges = np.concatenate([[max(0, filt_f[0] - df/2)], (filt_f[:-1] + filt_f[1:]) / 2,[filt_f[-1] + df/2]])
-
+    max_color_bar = 60.0
     for power, title, saving_name in zip(all_waterfalls, all_titles, all_saving_names):
 
         ### make our "matrix" .. really just the power weights
@@ -200,13 +206,13 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
 
         ### plot!
         cm = plt.get_cmap("Spectral_r")
-        lin_norm = matplotlib.colors.Normalize(vmin=0, vmax=60)
+        lin_norm = matplotlib.colors.Normalize(vmin=0, vmax=max_color_bar)
 
         fig, ax = plt.subplots(figsize=(10, 7))
         mesh = ax.pcolormesh(evs_bin_edges, freq_bin_edges, M.T, cmap=cm, norm = lin_norm)
         cb = fig.colorbar(mesh, ax=ax)
         cb.ax.set_ylabel("Average Power [dB]", fontsize = 20)
-        cb.set_ticks(np.arange(0, 60, 10))
+        cb.set_ticks(np.arange(0, max_color_bar+1, 10))
         cb.ax.tick_params(labelsize=14)
         cb.ax.minorticks_off()
         ax.set_title(f'{dataset}, {title}', fontsize = 20)
@@ -218,8 +224,36 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
         plt.savefig(f'/scratch/midway3/darcynewmark/satellites/waterfall_{dataset}_{saving_name}.png', dpi=300)
         plt.close(fig)
 
+    ### let's also make some one-d projections (averaging over events)
+    one_d_filt = [power_filtered_vpol, power_filtered_hpol]
+    one_d_unfilt = [power_unfiltered_vpol, power_unfiltered_hpol]
+    freq_mask = np.logical_and(filt_f > 0, filt_f < 1.5)
+    labels = ['V-Pol', 'H-Pol']
+    saving_names = ['vpol', 'hpol']
+    for p in range(len(one_d_filt)):
+        avg_filt = np.mean(one_d_filt[p], axis = 0)
+        std_filt = np.std(one_d_filt[p], axis=0)
+
+        avg_unfilt = np.mean(one_d_unfilt[p], axis = 0)
+        std_unfilt = np.std(one_d_unfilt[p], axis=0)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(filt_f[freq_mask], avg_unfilt[freq_mask], color = 'black', label = 'Unfiltered')
+        ax.fill_between(filt_f[freq_mask], (avg_unfilt - std_unfilt)[freq_mask], (avg_unfilt + std_unfilt)[freq_mask], color='black', alpha=0.2)
+        ax.plot(filt_f[freq_mask], avg_filt[freq_mask], color = '#d62728', label = 'Filtered')
+        ax.fill_between(filt_f[freq_mask], (avg_filt - std_filt)[freq_mask], (avg_filt + std_filt)[freq_mask], color='#d62728', alpha=0.2)
+        ax.set_title(f'{dataset}, {labels[p]}, {len(one_d_filt[p])} Total Events', fontsize = 20)
+        ax.set_xlabel(f'Frequency [GHz]', fontsize = 20)
+        ax.set_ylabel(f'Average Power [dB]', fontsize = 20)
+        ax.legend(fontsize=14, frameon=False)
+        ax.minorticks_on()
+        ax.tick_params(axis='both', which='both', labelsize=20)
+        ax.set_xlim(0,1.5)
+        fig.tight_layout()
+        fig.savefig(f'/scratch/midway3/darcynewmark/satellites/waterfall_oned_{saving_names[p]}.png', dpi=300)
+        plt.close(fig)
 
 if __name__ == "__main__":
     #plot_run_ev()
-    waterfalls()
+    waterfalls(n_evs=1000)
 

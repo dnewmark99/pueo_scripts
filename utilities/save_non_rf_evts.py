@@ -11,6 +11,7 @@ import functools
 from functools import reduce
 import glob
 from scipy.optimize import curve_fit
+import argparse
 
 import pueoTALON.pueoPythonAnalyzer.waveform as waveform
 import pueoTALON.pueoPythonAnalyzer.plotter as pltr
@@ -65,5 +66,4 @@ def save_force_triggers(run_start = 783, run_end = 808):
 
 
 if __name__ == "__main__":
-    #save_force_triggers(run_start = 755, run_end = 900)
-    save_force_triggers(run_start = 813, run_end = 813)
+    save_force_triggers(run_start = 783, run_end = 1402)
