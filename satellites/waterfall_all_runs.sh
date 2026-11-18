@@ -3,6 +3,7 @@
 #SBATCH --mem=10G
 #SBATCH --time=12:00:00          #Max Time Needed (HH:MM:SS)
 #SBATCH --account=pi-avieregg
+#SBATCH --partition=avieregg
 #SBATCH --output=/scratch/midway3/darcynewmark/slurm_scripts/res_%j.txt
 #SBATCH --array=0-800
 
