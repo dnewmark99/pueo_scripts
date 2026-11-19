@@ -186,8 +186,7 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
     pbar.close()
 
     print(f'average filtering time per event = {np.mean(total_time_per_event)}')
-    print(f'filt_f = {filt_f.tolist()}')
-    return
+
     ### now make our 2d waterfall plot!
     all_waterfalls = [power_filtered_vpol, power_unfiltered_vpol, power_filtered_hpol, power_unfiltered_hpol,]
     all_titles = ['Filtered (V-Pol)', 'Unfiltered (V-Pol)', 'Filtered (H-Pol)', 'Unfiltered (H-Pol)', ]
@@ -257,5 +256,5 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
 
 if __name__ == "__main__":
     #plot_run_ev()
-    waterfalls(n_evs=5)
+    waterfalls(n_evs=1000)
 
