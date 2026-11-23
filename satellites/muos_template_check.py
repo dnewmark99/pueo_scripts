@@ -19,8 +19,10 @@ ROOT.gSystem.Load("libpueoEvent.so")
 
 if __name__ == "__main__":
     ### let's go through just a few run, evs to really understand what muos template removal is doing
-    runs = [813]
-    evs = [2435]
+    runs = [1180, 1181]
+    evs = [0, 0]
+    #runs = [813]
+    #evs = [2435]
 
     prev_run = None
     for r in range(len(runs)):

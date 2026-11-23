@@ -35,7 +35,23 @@ def mask_runs_with_no_muos_files(runs):
             mask.append(False)
     return np.asarray(mask)
 
-def save_waterfalls(array, ev_per_array = 4000, ground_cal_name = 'TD'):
+
+def reduce_runs(runs, evs, max_evs=2000):
+    mask = np.zeros(len(runs), dtype=bool)
+    rng = np.random.default_rng(seed=42)
+
+    for run in np.unique(runs):
+        run_idx = np.where(runs == run)[0]
+
+        if len(run_idx) <= max_evs:
+            mask[run_idx] = True
+        else:
+            selected = rng.choice(run_idx, max_evs, replace=False)
+            mask[selected] = True
+
+    return mask
+
+def save_waterfalls(array, ev_per_array = 5000, ground_cal_name = 'TD'):
     if ground_cal_name == 'TD':
         source_loc_name = 'taylor_dome'
 
@@ -43,23 +59,7 @@ def save_waterfalls(array, ev_per_array = 4000, ground_cal_name = 'TD'):
     all_entries = []
     all_flags = []
     all_groundcal_pol = []
-
-    ### use some force triggers from ALL runs!
-    path = f'/scratch/midway3/darcynewmark/useful/nonrftriggers_run783_run1402.json'
-    with open(path) as f:
-        force_dict = json.load(f)
-    force_runs = np.asarray(force_dict['run'])
-    force_evs = np.asarray(force_dict['entry'])
-    ### mask out runs w no muos root files for now
-    muos_mask = mask_runs_with_no_muos_files(force_runs)
-    force_runs = force_runs[muos_mask]
-    force_evs = force_evs[muos_mask]
-    total_forcetrigger_events = len(force_evs)
-    [all_runs.append(int(r)) for r in force_runs]
-    [all_entries.append(int(e)) for e in force_evs]
-    [all_flags.append('Force') for x in range(len(force_runs))]
-    [all_groundcal_pol.append(0) for x in range(len(force_runs))]
-
+    
     ### also get some ground cal events
     groundcal_events = np.genfromtxt(os.environ['PUEO_ANALYSIS_TOOLS'] + f'/pueoTALON/lookup/my{ground_cal_name}_list.csv', delimiter=',', names=True, dtype=None)
     groundcal_runs = np.asarray(groundcal_events['run'])
@@ -70,6 +70,22 @@ def save_waterfalls(array, ev_per_array = 4000, ground_cal_name = 'TD'):
     [all_entries.append(int(e)) for e in groundcal_evs]
     [all_flags.append(ground_cal_name) for x in range(len(groundcal_runs))]
     [all_groundcal_pol.append(p) for p in groundcal_pol]
+
+    ### use some force triggers from ALL runs!
+    path = f'/scratch/midway3/darcynewmark/useful/nonrftriggers_run783_run1402.json'
+    with open(path) as f:
+        force_dict = json.load(f)
+    force_runs = np.asarray(force_dict['run'])
+    force_evs = np.asarray(force_dict['entry'])
+    ### down sample
+    mask = reduce_runs(force_runs, force_evs)
+    force_runs = force_runs[mask]
+    force_evs = force_evs[mask]
+    total_forcetrigger_events = len(force_evs)
+    [all_runs.append(int(r)) for r in force_runs]
+    [all_entries.append(int(e)) for e in force_evs]
+    [all_flags.append('Force') for x in range(len(force_runs))]
+    [all_groundcal_pol.append(0) for x in range(len(force_runs))]
 
     print(f'total of {len(all_runs)} events to process!')
     print(f'total of {total_groundcal_events} ground cal and {total_forcetrigger_events} force triggers events !')

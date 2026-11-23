@@ -112,6 +112,7 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
         [all_entries.append(int(e)) for e in rf_evs]
 
     if dataset == 'TaylorDome':
+        ground_cal_name = 'TD'
         groundcal_events = np.genfromtxt(os.environ['PUEO_ANALYSIS_TOOLS'] + f'/pueoTALON/lookup/my{ground_cal_name}_list.csv', delimiter=',', names=True, dtype=None)
         groundcal_runs = np.asarray(groundcal_events['run'])
         groundcal_evs = np.asarray(groundcal_events['entry_number'])
@@ -184,7 +185,6 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
             total_time_per_event.append(total_time)
 
     pbar.close()
-
     print(f'average filtering time per event = {np.mean(total_time_per_event)}')
 
     ### now make our 2d waterfall plot!
@@ -251,7 +251,7 @@ def waterfalls(dataset = 'ForceTriggers', n_evs = 1000):
         ax.tick_params(axis='both', which='both', labelsize=20)
         ax.set_xlim(0,1.5)
         fig.tight_layout()
-        fig.savefig(f'/scratch/midway3/darcynewmark/satellites/waterfall_oned_{saving_names[p]}.png', dpi=300)
+        fig.savefig(f'/scratch/midway3/darcynewmark/satellites/waterfall_oned_{dataset}_{saving_names[p]}.png', dpi=300)
         plt.close(fig)
 
 if __name__ == "__main__":
