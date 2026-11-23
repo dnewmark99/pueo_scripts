@@ -59,7 +59,7 @@ def save_waterfalls(array, ev_per_array = 5000, ground_cal_name = 'TD'):
     all_entries = []
     all_flags = []
     all_groundcal_pol = []
-    
+
     ### also get some ground cal events
     groundcal_events = np.genfromtxt(os.environ['PUEO_ANALYSIS_TOOLS'] + f'/pueoTALON/lookup/my{ground_cal_name}_list.csv', delimiter=',', names=True, dtype=None)
     groundcal_runs = np.asarray(groundcal_events['run'])
@@ -131,8 +131,8 @@ def save_waterfalls(array, ev_per_array = 5000, ground_cal_name = 'TD'):
         this_flag = this_array_flags[r]
         this_groundcal_pol = this_array_groundcal_pol[r]
 
-        ### check if we have a correlator object for this run
-        if prev_run == None or prev_run != this_run:
+        ### check if we have a correlator object
+        if prev_run == None:
             ### set up correlator
             corr = correlator.Correlator(run = this_run)
             prev_run = this_run
@@ -141,6 +141,11 @@ def save_waterfalls(array, ev_per_array = 5000, ground_cal_name = 'TD'):
             channel_names = np.asarray(corr.ChannelGeo.MI_ringphipol)
             mask_H = np.array([int(ch[:2]) <= 4 and int(ch[2:4]) <= 24 and ch[-1] == 'H' for ch in channel_names])
             mask_V = np.array([int(ch[:2]) <= 4 and int(ch[2:4]) <= 24 and ch[-1] == 'V' for ch in channel_names])
+
+        ### update our correlator object for this run
+        if prev_run != this_run:
+            corr.ChannelGeo.load_run_event(run = this_run, entry = this_ev)
+            prev_run = this_run
 
         ### load this event
         corr.ChannelGeo.load_event(this_ev)
